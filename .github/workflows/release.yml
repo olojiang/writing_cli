@@ -24,7 +24,7 @@ jobs:
           - target: windows-x86_64
             runner: windows-2022
           - target: macos-x86_64
-            runner: macos-13
+            runner: macos-15-intel
           - target: macos-arm64
             runner: macos-14
 
