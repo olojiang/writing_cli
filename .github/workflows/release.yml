@@ -65,38 +65,20 @@ jobs:
           New-Item -ItemType Directory -Path release -Force | Out-Null
           Compress-Archive -Path dist/iiif-stitcher.exe -DestinationPath "release/iiif-stitcher-${{ matrix.target }}.zip"
 
-      - name: Upload workflow artifact
-        uses: actions/upload-artifact@v5
-        with:
-          name: iiif-stitcher-${{ matrix.target }}
-          path: release/*
-          if-no-files-found: error
-
-  release:
-    name: publish-release
-    if: startsWith(github.ref, 'refs/tags/')
-    needs: build
-    runs-on: ubuntu-24.04
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v5
-        with:
-          path: release-artifacts
-
       - name: Publish release with binaries
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          shopt -s globstar nullglob
-          files=(release-artifacts/**/*)
+          shopt -s nullglob
+          files=(release/*)
           if [ "${#files[@]}" -eq 0 ]; then
             echo "No release artifacts found"
             exit 1
           fi
 
           tag="${GITHUB_REF_NAME}"
-          if gh release view "$tag" >/dev/null 2>&1; then
-            gh release upload "$tag" "${files[@]}" --clobber
-          else
-            gh release create "$tag" "${files[@]}" --generate-notes --title "$tag"
+          if ! gh release view "$tag" >/dev/null 2>&1; then
+            gh release create "$tag" --generate-notes --title "$tag" >/dev/null 2>&1 || true
           fi
+          gh release upload "$tag" "${files[@]}" --clobber

@@ -51,7 +51,7 @@ iiif-stitcher --secure 'https://digitalarchive.npm.gov.tw/Integrate/IIIFViewer?i
 
 行为：
 - `git tag vX.Y.Z && git push origin vX.Y.Z` 后自动构建并发布 Release 附件
-- 手动触发 `workflow_dispatch` 时会构建并上传 Actions artifact（不自动发 Release）
+- 手动触发 `workflow_dispatch` 时仅做多平台构建验证（不发布 Release）
 - 产物平台：
   - Windows x86_64
   - macOS x86_64
