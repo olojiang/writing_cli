@@ -1,0 +1,87 @@
+name: Build And Release CLI
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build-${{ matrix.target }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x86_64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+          - target: windows-x86_64
+            runner: windows-2022
+          - target: macos-x86_64
+            runner: macos-13
+          - target: macos-arm64
+            runner: macos-14
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pyinstaller .
+          python -m pip install pytest
+
+      - name: Run tests
+        run: python -m pytest -q
+
+      - name: Build binary
+        run: pyinstaller --clean --noconfirm --onefile --name iiif-stitcher src/iiif_stitcher/cli.py
+
+      - name: Package unix archive
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p release
+          tar -czf "release/iiif-stitcher-${{ matrix.target }}.tar.gz" -C dist iiif-stitcher
+
+      - name: Package windows archive
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path release -Force | Out-Null
+          Compress-Archive -Path dist/iiif-stitcher.exe -DestinationPath "release/iiif-stitcher-${{ matrix.target }}.zip"
+
+      - name: Upload workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: iiif-stitcher-${{ matrix.target }}
+          path: release/*
+          if-no-files-found: error
+
+  release:
+    name: publish-release
+    if: startsWith(github.ref, 'refs/tags/')
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Publish release with binaries
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-artifacts/**/*
+          generate_release_notes: true
